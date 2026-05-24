@@ -3,6 +3,7 @@
 # ------------------------------------------------------------------------------
 # Optimized Version: Directly evaluates all pairwise numeric differences.
 # Recommended for datasets with fewer than 1,000 rows.
+# For data exceeding 1,000 rows, use the memory-optimized version to avoid OOM crashes.
 # Developed by: Tatsuki Itagaki
 # Copyright (c) 2026 Tatsuki Itagaki
 # License: MIT License (https://opensource.org)
