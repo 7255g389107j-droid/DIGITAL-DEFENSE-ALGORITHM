@@ -1,0 +1,117 @@
+# ==============================================================================
+# ITAGAKI-SYSTEM: GENERALIZED SAMPLE STABILITY EVALUATOR (RAW METRIC RUNTIME)
+# ------------------------------------------------------------------------------
+# Optimized Version: Row-wise streaming evaluator for cross-component stability.
+# Provides objective statistical metrics (IR & Sp) for manual forensic inspection.
+# Developed by: Tatsuki Itagaki
+# Copyright (c) 2026 Tatsuki Itagaki. All Rights Reserved.
+# License: MIT License (https://opensource.org)
+# ==============================================================================
+
+run_itagaki_sample_stability <- function(Dataset, tol = 1e-9) {
+  
+  # Initialize Logging
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0("FORENSIC_STABILITY_REPORT_", timestamp, ".txt")
+  
+  sink_file <- file(log_filename, open = "wt")
+  sink(sink_file, split = TRUE) 
+  on.exit({
+    sink()
+    close(sink_file)
+  }, add = TRUE)
+  
+  # Basic Input Verification & Universal Matrix Conversion
+  if (!exists("Dataset") || is.null(Dataset)) {
+    stop("ERROR: Missing required input object (Dataset).")
+  }
+  
+  if (is.list(Dataset) && !is.data.frame(Dataset)) {
+    P_raw <- do.call(rbind, lapply(Dataset, as.numeric))
+  } else {
+    P_raw <- as.matrix(Dataset)
+  }
+  
+  # Fetch layout coordinates
+  sample_ids <- rownames(P_raw)
+  if (is.null(sample_ids)) sample_ids <- paste0("S_", 1:nrow(P_raw))
+  rownames(P_raw) <- sample_ids
+  
+  n_s <- nrow(P_raw)
+  n_t <- ncol(P_raw)
+  
+  if (n_s < 1 || n_t < 3) {
+    stop("ERROR: At least 3 components (columns) are required to calculate meaningful row variance.")
+  }
+  
+  cat("\n==========================================================\n")
+  cat("       ITAGAKI PHYSICAL STABILITY ENGINE: ROW-WISE MAP    \n")
+  cat("==========================================================\n")
+  cat(sprintf("Total Input Samples (n_s)     : %d\n", n_s))
+  cat(sprintf("Total Evaluated Elements (n_t): %d\n", n_t))
+  cat("==========================================================\n\n")
+  
+  # --- 1. GENERALIZED DATA NORMALIZATION & COMPONENT EXTRACTION ---
+  # Filter out entirely zero-fill vectors or negative anomalies
+  valid_cols <- colSums(abs(P_raw)) > tol
+  if (sum(valid_cols) < 3) {
+    stop("CRITICAL ERROR: Insufficient variance profile across active non-zero columns.")
+  }
+  P_clean <- P_raw[, valid_cols, drop = FALSE]
+  n_t_clean <- ncol(P_clean)
+  
+  # Secure lower physical boundary to prevent log(0) calculation
+  positive_values <- P_clean[P_clean > tol]
+  global_min_positive <- if(length(positive_values) > 0) min(positive_values) else 1.0
+  P_secure <- pmax(P_clean, global_min_positive)
+  
+  # Compute Sample-Wise Effective Scaling Library Vector
+  row_minima <- apply(P_secure, 1, min)
+  eff_lib_vec <- 1 / pmax(row_minima, tol)
+  
+  # Log-transform raw distribution values per row
+  L_mat <- log(P_secure)
+  
+  # --- 2. ROW-WISE STABILITY EVALUATION (IR & Sp GENERATION) ---
+  # Compute Observed Empirical Row Variance (V_obs) across components
+  obs_v_vec <- apply(L_mat, 1, var)
+  
+  # Compute Theoretical Stochastic Variance (V_theo) based on Generalized Poisson Target Noise
+  row_means <- rowMeans(P_secure)
+  theo_v_vec <- 1 / pmax(row_means * eff_lib_vec, tol)
+  
+  # Compute Row Invariance Ratio (IR) & Physical Deviation Score (Sp)
+  ir_vec <- obs_v_vec / theo_v_vec
+  sp_vec <- log10(ir_vec + 1)
+  
+  # --- 3. METRIC PIPELINE SORTING ---
+  stability_report <- data.frame(
+    Sample_ID             = sample_ids,
+    Mean_Intensity        = round(row_means, 4),
+    Observed_Variance     = round(obs_v_vec, 4),
+    Theoretical_Variance  = round(theo_v_vec, 4),
+    Invariance_Ratio_IR   = round(ir_vec, 4),
+    Physical_Deviation_Sp = round(sp_vec, 6),
+    stringsAsFactors      = FALSE
+  )
+  
+  # Sort strictly by Sample_ID to maintain chronological dataset mapping or original row alignment
+  # Alter to order(stability_report$Invariance_Ratio_IR) if ranking is desired during inspection
+  stability_report <- stability_report[order(stability_report$Sample_ID), ]
+  
+  # Print evaluation block
+  print(stability_report, right = FALSE, row.names = FALSE)
+  
+  # --- 4. CONSOLE TELEMETRY TERMINATION SUMMARY ---
+  cat("----------------------------------------------------------\n")
+  cat("METRIC DEFINITIONS:\n")
+  cat("  - Invariance_Ratio_IR: Ratio of observed versus theoretical Poisson baseline noise.\n")
+  cat("  - Physical_Deviation_Sp: Log-scaled variance distance score.\n")
+  cat("==========================================================\n")
+  
+  message(sprintf("[SUCCESS] Forensic stability metrics saved to: %s", log_filename))
+  return(invisible(stability_report))
+}
+
+# Run row-wise generalized physical stability check on raw data
+  run_itagaki_sample_stability(Dataset)
