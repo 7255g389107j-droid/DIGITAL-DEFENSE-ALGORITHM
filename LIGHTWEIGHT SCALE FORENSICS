@@ -1,0 +1,123 @@
+# ==============================================================================
+# ITAGAKI-SYSTEM (DIGITAL DEFENSE ALGORITHM) - LIGHTWEIGHT SCALE FORENSICS
+# ------------------------------------------------------------------------------
+# Optimized Version: Low-memory footprint streaming pairwise evaluator.
+# Developed by: Tatsuki Itagaki
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# ==============================================================================
+
+run_itagaki_forensics_numeric <- function(P_raw, tol = 1e-9) {
+  
+  # Initialize Logging
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0("FORENSIC_NUMERIC_REPORT_", timestamp, ".txt")
+  
+  sink_file <- file(log_filename, open = "wt")
+  sink(sink_file, split = TRUE) 
+  on.exit({
+    sink()
+    close(sink_file)
+  }, add = TRUE)
+  
+  # Basic Input Verification
+  if (!exists("P_raw") || is.null(P_raw)) {
+    stop("ERROR: Missing required input object (P_raw).")
+  }
+  
+  if (is.list(P_raw) && !is.data.frame(P_raw)) {
+    P_raw <- do.call(rbind, lapply(P_raw, as.numeric))
+  } else {
+    P_raw <- as.matrix(P_raw)
+  }
+  
+  # --- Dynamic Variable Assignment & Fallback Logic ---
+  sample_ids          <- rownames(P_raw)
+  if(is.null(sample_ids)) sample_ids <- paste0("S_", 1:nrow(P_raw))
+  n_s                 <- nrow(P_raw)
+  n_t                 <- ncol(P_raw)
+  
+  if (n_s < 2) {
+    stop("ERROR: At least 2 samples (rows) are required to perform forensic pairwise matching.")
+  }
+  
+  cat("\n==========================================================\n")
+  cat("          ITAGAKI-SYSTEM: NUMERIC FORENSIC REPORT         \n")
+  cat("==========================================================\n")
+  cat(sprintf("Total Samples analyzed (n_s)  : %d\n", n_s))
+  cat(sprintf("Total Components analyzed (n_t): %d\n", n_t))
+  cat("==========================================================\n\n")
+  
+  # Pre-allocate containers for tracking suspects without matrix explosion
+  suspect_A       <- character(0)
+  suspect_B       <- character(0)
+  suspect_verdict <- character(0)
+  
+  # Vectorized row-by-row streaming comparison loop
+  for (i in 1:(n_s - 1)) {
+    vA <- P_raw[i, ]
+    
+    # Slice the remaining subset block to scan against vA concurrently
+    remaining_indices <- (i + 1):n_s
+    block_B <- P_raw[remaining_indices, , drop = FALSE]
+    
+    # Fast evaluation using row-wise absolute vector differences
+    diff_matrix <- abs(sweep(block_B, 2, vA, "-"))
+    is_copy_paste <- rowSums(diff_matrix > tol) == 0
+    
+    # Conditional scale checking for non-identical matches
+    is_scaled <- sapply(seq_along(remaining_indices), function(j) {
+      if (is_copy_paste[j]) return(FALSE)
+      vB <- block_B[j, ]
+      valid <- vA > tol & vB > tol
+      if (sum(valid) < 2) return(FALSE)
+      ratios <- vA[valid] / vB[valid]
+      return(var(ratios) < tol)
+    })
+    
+    # Log any compromised matches spotted in the current block
+    hit_idx <- which(is_copy_paste | is_scaled)
+    if (length(hit_idx) > 0) {
+      actual_targets <- remaining_indices[hit_idx]
+      
+      suspect_A <- c(suspect_A, rep(sample_ids[i], length(hit_idx)))
+      suspect_B <- c(suspect_B, sample_ids[actual_targets])
+      
+      verdicts <- ifelse(is_copy_paste[hit_idx], 
+                         " -> WARNING: Raw values are 100% IDENTICAL. Extreme suspicion of data fabrication (Copy-Paste).", 
+                         " -> NOTICE: Proportional scaling detected. Evaluate for artificial simulation or scaling manipulation.")
+      suspect_verdict <- c(suspect_verdict, verdicts)
+    }
+  }
+  
+  # --- Output Execution Summary ---
+  if (length(suspect_A) == 0) {
+    cat("==========================================================\n")
+    cat("          FORENSIC INTEGRITY PASS REPORT                  \n")
+    cat("==========================================================\n")
+    cat("No anomalous data duplications or scaling patterns detected.\n")
+    cat("All individual numeric fluctuations are preserved normally.\n")
+    cat("==========================================================\n")
+    message(sprintf("[SUCCESS] Forensic report saved to: %s", log_filename))
+    return(invisible(NULL))
+  }
+  
+  cat("    CRITICAL SECURITY ALERT: NUMERIC MATCH TRIPPED        \n")
+  cat("==========================================================\n")
+  cat(sprintf("Anomalous numeric profiles detected across %d pair(s).\n", length(suspect_A)))
+  cat("Verifying raw values within P_raw for fabrication detection...\n\n")
+  
+  alert_summary <- data.frame(
+    Sample_A         = suspect_A, 
+    Sample_B         = suspect_B, 
+    Forensic_Verdict = suspect_verdict, 
+    stringsAsFactors = FALSE
+  )
+  print(alert_summary, right = FALSE, row.names = FALSE)
+  cat("----------------------------------------------------------\n")
+  
+  message(sprintf("[SUCCESS] Forensic report successfully saved to: %s", log_filename))
+}
+
+# Run forensic analysis on the unfiltered raw dataset
+  run_itagaki_forensics_numeric(Dataset)
