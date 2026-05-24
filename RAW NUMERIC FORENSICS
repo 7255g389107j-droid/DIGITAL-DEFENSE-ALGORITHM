@@ -1,0 +1,135 @@
+# ==============================================================================
+# ITAGAKI-SYSTEM (DIGITAL DEFENSE ALGORITHM) - RAW NUMERIC FORENSICS RUNTIME
+# ------------------------------------------------------------------------------
+# Optimized Version: Directly evaluates all pairwise numeric differences.
+# Developed by: Tatsuki Itagaki
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# ==============================================================================
+
+run_itagaki_forensics_numeric <- function(P_raw, tol = 1e-9) {
+  
+  # Initialize Logging
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0("FORENSIC_NUMERIC_REPORT_", timestamp, ".txt")
+  
+  sink_file <- file(log_filename, open = "wt")
+  sink(sink_file, split = TRUE) 
+  on.exit({
+    sink()
+    close(sink_file)
+  }, add = TRUE)
+  
+  # Basic Input Verification
+  if (!exists("P_raw") || is.null(P_raw)) {
+    stop("ERROR: Missing required input object (P_raw).")
+  }
+  
+  if (is.list(P_raw) && !is.data.frame(P_raw)) {
+    P_raw <- do.call(rbind, lapply(P_raw, as.numeric))
+  } else {
+    P_raw <- as.matrix(P_raw)
+  }
+  
+  # --- Dynamic Variable Assignment & Fallback Logic ---
+  sample_ids          <- rownames(P_raw)
+  if(is.null(sample_ids)) sample_ids <- paste0("S_", 1:nrow(P_raw))
+  n_s                 <- nrow(P_raw)
+  n_t                 <- ncol(P_raw)
+  
+  if (n_s < 2) {
+    stop("ERROR: At least 2 samples (rows) are required to perform forensic pairwise matching.")
+  }
+  
+  cat("\n==========================================================\n")
+  cat("          ITAGAKI-SYSTEM: NUMERIC FORENSIC REPORT         \n")
+  cat("==========================================================\n")
+  cat(sprintf("Total Samples analyzed (n_s)  : %d\n", n_s))
+  cat(sprintf("Total Components analyzed (n_t): %d\n", n_t))
+  cat("==========================================================\n\n")
+  
+  all_pairs_idx <- combn(n_s, 2)
+  idx_A <- all_pairs_idx[1, ]
+  idx_B <- all_pairs_idx[2, ]
+  
+  matrix_slice_A <- P_raw[idx_A, , drop = FALSE]
+  matrix_slice_B <- P_raw[idx_B, , drop = FALSE]
+  
+  diff_matrix <- abs(matrix_slice_A - matrix_slice_B)
+  is_copy_paste <- rowSums(diff_matrix > tol) == 0
+  
+  is_scaled <- sapply(1:ncol(all_pairs_idx), function(i) {
+    if (is_copy_paste[i]) return(FALSE)
+    vA <- matrix_slice_A[i, ]
+    vB <- matrix_slice_B[i, ]
+    valid <- vA > tol & vB > tol
+    if (sum(valid) < 2) return(FALSE)
+    ratios <- vA[valid] / vB[valid]
+    return(var(ratios) < tol)
+  })
+  
+  suspect_indices <- which(is_copy_paste | is_scaled)
+  
+  if (length(suspect_indices) == 0) {
+    cat("==========================================================\n")
+    cat("          FORENSIC INTEGRITY PASS REPORT                  \n")
+    cat("==========================================================\n")
+    cat("No anomalous data duplications or scaling patterns detected.\n")
+    cat("All individual numeric fluctuations are preserved normally.\n")
+    cat("==========================================================\n")
+    message(sprintf("[SUCCESS] Forensic report saved to: %s", log_filename))
+    return(invisible(NULL))
+  }
+  
+  cat("    CRITICAL SECURITY ALERT: NUMERIC MATCH TRIPPED        \n")
+  cat("==========================================================\n")
+  cat(sprintf("Anomalous numeric profiles detected across %d pair(s).\n", length(suspect_indices)))
+  cat("Verifying raw values within P_raw for fabrication detection...\n\n")
+  
+  s1_names <- sample_ids[idx_A[suspect_indices]]
+  s2_names <- sample_ids[idx_B[suspect_indices]]
+  
+  verdict <- ifelse(is_copy_paste[suspect_indices], 
+                    " -> WARNING: Raw values are 100% IDENTICAL. Extreme suspicion of data fabrication (Copy-Paste).", 
+                    " -> NOTICE: Proportional scaling detected. Evaluate for artificial simulation or scaling manipulation.")
+  
+  alert_summary <- data.frame(Sample_A = s1_names, Sample_B = s2_names, Forensic_Verdict = verdict, stringsAsFactors = FALSE)
+  print(alert_summary, right = FALSE, row.names = FALSE)
+  cat("----------------------------------------------------------\n")
+  
+  # --- DEEP DIVE REPORT ---
+  master_forensic_list <- list()
+  list_idx <- 1
+  
+  component_names <- colnames(P_raw)
+  if(is.null(component_names)) component_names <- paste0("C_", 1:n_t)
+  
+  for (p in seq_along(suspect_indices)) {
+    actual_pair_pos <- suspect_indices[p]
+    
+    vals_A <- matrix_slice_A[actual_pair_pos, ]
+    vals_B <- matrix_slice_B[actual_pair_pos, ]
+    
+    master_forensic_list[[list_idx]] <- data.frame(
+      Compare_Pair = rep(paste0("[", s1_names[p], " vs ", s2_names[p], "]"), times = n_t),
+      Component    = as.character(component_names),
+      Raw_Val_A    = vals_A,
+      Raw_Val_B    = vals_B,
+      stringsAsFactors = FALSE
+    )
+    list_idx <- list_idx + 1
+  }
+  
+  master_forensic_db <- do.call(rbind, master_forensic_list)
+  rownames(master_forensic_db) <- NULL
+  
+  cat("Detailed raw value comparison for suspect components:\n\n")
+  print(master_forensic_db, row.names = FALSE)
+  cat("==========================================================\n")
+  
+  message(sprintf("[SUCCESS] Forensic report successfully saved to: %s", log_filename))
+}
+
+
+# Run forensic analysis on the unfiltered raw dataset
+run_itagaki_forensics_numeric(Dataset)
