@@ -1,0 +1,148 @@
+# ==============================================================================
+# ITAGAKI-SYSTEM (DIGITAL DEFENSE ALGORITHM) - STREAMING FORENSIC COUNTER
+# ------------------------------------------------------------------------------
+# Optimized Version: Low-overhead streaming evaluator with failure-safe tallies.
+# Recommended for massive datasets with dense/highly repeated anomalies.
+# Developed by: Tatsuki Itagaki
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# ==============================================================================
+
+run_itagaki_forensics_numeric <- function(P_raw, tol = 1e-9, max_log_samples = 100) {
+  
+  # Initialize Logging
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0("FORENSIC_NUMERIC_REPORT_", timestamp, ".txt")
+  
+  sink_file <- file(log_filename, open = "wt")
+  sink(sink_file, split = TRUE) 
+  on.exit({
+    sink()
+    close(sink_file)
+  }, add = TRUE)
+  
+  # Basic Input Verification
+  if (!exists("P_raw") || is.null(P_raw)) {
+    stop("ERROR: Missing required input object (P_raw).")
+  }
+  
+  if (is.list(P_raw) && !is.data.frame(P_raw)) {
+    P_raw <- do.call(rbind, lapply(P_raw, as.numeric))
+  } else {
+    P_raw <- as.matrix(P_raw)
+  }
+  
+  # --- Dynamic Variable Assignment & Fallback Logic ---
+  sample_ids          <- rownames(P_raw)
+  if(is.null(sample_ids)) sample_ids <- paste0("S_", 1:nrow(P_raw))
+  n_s                 <- nrow(P_raw)
+  n_t                 <- ncol(P_raw)
+  
+  if (n_s < 2) {
+    stop("ERROR: At least 2 samples (rows) are required to perform forensic pairwise matching.")
+  }
+  
+  cat("\n==========================================================\n")
+  cat("          ITAGAKI-SYSTEM: NUMERIC FORENSIC REPORT         \n")
+  cat("==========================================================\n")
+  cat(sprintf("Total Samples analyzed (n_s)  : %d\n", n_s))
+  cat(sprintf("Total Components analyzed (n_t): %d\n", n_t))
+  cat("==========================================================\n\n")
+  
+  # Fail-safe Integer Tallies
+  count_copy_paste <- 0
+  count_scaled     <- 0
+  
+  # Small telemetry matrix to hold initial flagged samples without risking OOM
+  sampled_A       <- character(0)
+  sampled_B       <- character(0)
+  sampled_verdict <- character(0)
+  
+  # Vectorized Streaming Scanner Loop
+  for (i in 1:(n_s - 1)) {
+    vA <- P_raw[i, ]
+    
+    remaining_indices <- (i + 1):n_s
+    block_B <- P_raw[remaining_indices, , drop = FALSE]
+    
+    diff_matrix <- abs(sweep(block_B, 2, vA, "-"))
+    is_copy_paste <- rowSums(diff_matrix > tol) == 0
+    
+    is_scaled <- sapply(seq_along(remaining_indices), function(j) {
+      if (is_copy_paste[j]) return(FALSE)
+      vB <- block_B[j, ]
+      valid <- vA > tol & vB > tol
+      if (sum(valid) < 2) return(FALSE)
+      ratios <- vA[valid] / vB[valid]
+      return(var(ratios) < tol)
+    })
+    
+    # Calculate local block hits
+    cp_hits     <- sum(is_copy_paste)
+    scale_hits  <- sum(is_scaled)
+    
+    # Update total tallies immediately (Integer metrics cost no memory)
+    count_copy_paste <- count_copy_paste + cp_hits
+    count_scaled     <- count_scaled + scale_hits
+    
+    # Collect only a limited subset of samples to avoid text allocation bloat
+    total_logged_so_far <- length(sampled_A)
+    if (total_logged_so_far < max_log_samples) {
+      hit_idx <- which(is_copy_paste | is_scaled)
+      if (length(hit_idx) > 0) {
+        # Cap the incoming logs to remain under max_log_samples ceiling
+        allowed_slots  <- max_log_samples - total_logged_so_far
+        hit_idx_capped <- hit_idx[1:min(length(hit_idx), allowed_slots)]
+        actual_targets <- remaining_indices[hit_idx_capped]
+        
+        sampled_A <- c(sampled_A, rep(sample_ids[i], length(hit_idx_capped)))
+        sampled_B <- c(sampled_B, sample_ids[actual_targets])
+        
+        verdicts <- ifelse(is_copy_paste[hit_idx_capped], "Copy-Paste", "Proportional Scaling")
+        sampled_verdict <- c(sampled_verdict, verdicts)
+      }
+    }
+  }
+  
+  total_anomalies <- count_copy_paste + count_scaled
+  
+  # --- Output Metric Telemetry ---
+  if (total_anomalies == 0) {
+    cat("==========================================================\n")
+    cat("          FORENSIC INTEGRITY PASS REPORT                  \n")
+    cat("==========================================================\n")
+    cat("No anomalous data duplications or scaling patterns detected.\n")
+    cat("All individual numeric fluctuations are preserved normally.\n")
+    cat("==========================================================\n")
+    message(sprintf("[SUCCESS] Forensic report saved to: %s", log_filename))
+    return(invisible(NULL))
+  }
+  
+  cat("    CRITICAL SECURITY ALERT: NUMERIC MATCH TRIPPED        \n")
+  cat("==========================================================\n")
+  cat(sprintf("TOTAL ANOMALOUS PAIRS DETECTED : %d\n", total_anomalies))
+  cat(sprintf("  -> Raw Duplications (Copy-Paste)  : %d\n", count_copy_paste))
+  cat(sprintf("  -> Scaled Modifications (Scaling) : %d\n", count_scaled))
+  cat("==========================================================\n\n")
+  
+  # Print the telemetry preview sample log
+  cat(sprintf("Previewing the first %d flagged instances:\n\n", length(sampled_A)))
+  alert_summary <- data.frame(
+    Sample_A = sampled_A, 
+    Sample_B = sampled_B, 
+    Anomalous_Type = sampled_verdict, 
+    stringsAsFactors = FALSE
+  )
+  print(alert_summary, right = FALSE, row.names = FALSE)
+  cat("----------------------------------------------------------\n")
+  
+  if (total_anomalies > max_log_samples) {
+    cat(sprintf("[NOTICE] %d additional matches suppressed from console logs to conserve RAM.\n", 
+                total_anomalies - max_log_samples))
+    cat("----------------------------------------------------------\n")
+  }
+  
+  message(sprintf("[SUCCESS] Forensic report successfully saved to: %s", log_filename))
+}
+
+ run_itagaki_forensics_numeric(Dataset)
