@@ -28,6 +28,14 @@ The **ITAGAKI-SYSTEM** performs raw numeric forensics by executing optimized pai
 
 ---
 
+## Academic Citation
+If you utilize this software, logic, or threshold methodology in your research, please cite the following original works:
+
+1. Itagaki, T. (2026).  DOI: [10.13140/RG.2.2.16462.42560](https://doi.org/10.13140/RG.2.2.16462.42560)
+2. Itagaki, T. (2026).  DOI: [10.13140/RG.2.2.13198.73284](https://doi.org/10.13140/RG.2.2.13198.73284)
+
+---
+
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](https://opensource.org) page for legal details.
