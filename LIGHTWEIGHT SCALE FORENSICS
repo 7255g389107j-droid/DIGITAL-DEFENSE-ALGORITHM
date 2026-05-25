@@ -6,6 +6,11 @@
 # Developed by: Tatsuki Itagaki
 # Copyright (c) 2026 Tatsuki Itagaki
 # License: MIT License (https://opensource.org)
+# 
+# ACADEMIC CITATION:
+# If you use this software or its logic in your research, please cite:
+# Itagaki, T. (2026). DOI: 10.13140/RG.2.2.16462.42560
+# Itagaki, T. (2026). DOI: 10.13140/RG.2.2.13198.73284
 # ==============================================================================
 
 run_itagaki_forensics_numeric <- function(P_raw, tol = 1e-9) {
