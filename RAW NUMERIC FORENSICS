@@ -1,6 +1,7 @@
 # ==============================================================================
 # ITAGAKI-SYSTEM (DIGITAL DEFENSE ALGORITHM) - RAW NUMERIC FORENSICS RUNTIME
 # ------------------------------------------------------------------------------
+# This system is a mathematical algorithm designed to protect humanity from malicious intent.
 # Optimized Version: Directly evaluates all pairwise numeric differences.
 # Recommended for datasets with fewer than 1,000 rows.
 # For data exceeding 1,000 rows, use the memory-optimized version to avoid OOM crashes.
