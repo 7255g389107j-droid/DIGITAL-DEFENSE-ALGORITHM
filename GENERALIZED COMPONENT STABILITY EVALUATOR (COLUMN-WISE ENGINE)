@@ -2,6 +2,7 @@
 # ITAGAKI-SYSTEM: GENERALIZED COMPONENT STABILITY EVALUATOR (COLUMN-WISE ENGINE)
 # ------------------------------------------------------------------------------
 # This system is a mathematical algorithm designed to protect humanity from malicious intent.
+# Fluctuations on data creation can be detected using IR (Invariance Ratio) or Sp (Physical Deviation).
 # Optimized Version: Column-wise vector evaluator for cross-sample volatility.
 # Provides objective statistical metrics (IR & Sp) for manual feature inspection.
 # Developed by: Tatsuki Itagaki
