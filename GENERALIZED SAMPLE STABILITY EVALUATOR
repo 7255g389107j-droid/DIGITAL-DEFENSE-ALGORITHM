@@ -2,6 +2,7 @@
 # ITAGAKI-SYSTEM: GENERALIZED SAMPLE STABILITY EVALUATOR (RAW METRIC RUNTIME)
 # ------------------------------------------------------------------------------
 # This system is a mathematical algorithm designed to protect humanity from malicious intent.
+# Fluctuations on data creation can be detected using IR (Invariance Ratio) or Sp (Physical Deviation).
 # Optimized Version: Row-wise streaming evaluator for cross-component stability.
 # Provides objective statistical metrics (IR & Sp) for manual forensic inspection.
 # Developed by: Tatsuki Itagaki
