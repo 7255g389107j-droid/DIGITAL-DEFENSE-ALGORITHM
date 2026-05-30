@@ -1,0 +1,178 @@
+# ==============================================================================
+# ITAGAKI-SYSTEM (DIGITAL DEFENSE ALGORITHM) - STREAMING FORENSIC COUNTER
+# ------------------------------------------------------------------------------
+# This system is a mathematical algorithm designed to protect humanity from malicious intent.
+# Optimized Version: Low-overhead streaming evaluator with failure-safe tallies.
+# Highly optimized using Base R matrix vectorization for maximum processing speed.
+# Detected Anomaly Patterns: Copy-Paste, Proportional Scaling (aX), Linear (aX + b).
+# Developed by: Tatsuki Itagaki
+# Copyright (c) 2026 Tatsuki Itagaki
+# License: MIT License (https://opensource.org)
+# 
+# ACADEMIC CITATION:
+# If you use this software or its logic in your research, please cite:
+# Itagaki, T. (2026). DOI: 10.13140/RG.2.2.16462.42560
+# Itagaki, T. (2026). DOI: 10.13140/RG.2.2.13198.73284
+# ==============================================================================
+
+run_itagaki_forensics_advanced <- function(P_raw, tol = 1e-9, max_log_samples = 100) {
+  
+  # 1. Initialize Forensic Audit Logging
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  log_filename <- paste0("FORENSIC_ADVANCED_REPORT_", timestamp, ".txt")
+  sink_file <- file(log_filename, open = "wt")
+  sink(sink_file, split = TRUE) 
+  on.exit({ sink(); close(sink_file) }, add = TRUE)
+  
+  # 2. Fast Input Type Verification & Conversion
+  if (is.data.frame(P_raw)) {
+    P_raw <- as.matrix(P_raw)
+  } else if (is.list(P_raw)) {
+    P_raw <- do.call(rbind, lapply(P_raw, as.numeric))
+  } else {
+    P_raw <- as.matrix(P_raw)
+  }
+  
+  sample_ids <- rownames(P_raw)
+  if(is.null(sample_ids)) sample_ids <- paste0("S_", 1:nrow(P_raw))
+  n_s <- nrow(P_raw)
+  n_t <- ncol(P_raw)
+  
+  if (n_s < 2) stop("ERROR: At least 2 samples (rows) are required for pairwise forensic matching.")
+  if (n_t < 3) stop("ERROR: Linear transformation detection (aX + b) requires at least 3 components (columns).")
+  
+  cat("\n==========================================================\n")
+  cat("     ITAGAKI-SYSTEM: ADVANCED NUMERIC FORENSIC REPORT     \n")
+  cat("==========================================================\n")
+  cat(sprintf("Total Samples analyzed (n_s)  : %d\n", n_s))
+  cat(sprintf("Total Components analyzed (n_t): %d\n", n_t))
+  cat("==========================================================\n\n")
+  
+  # Fail-safe Integer Tallies (RAM-conservative metrics)
+  count_copy_paste <- 0
+  count_scaled     <- 0
+  count_linear     <- 0  # For parallel shifting (aX + b)
+  
+  sampled_A <- character(0); sampled_B <- character(0); sampled_verdict <- character(0)
+  
+  # 3. Vectorized Streaming Scanner Loop (Sapply Eliminated)
+  for (i in 1:(n_s - 1)) {
+    vA <- P_raw[i, ]
+    remaining_indices <- (i + 1):n_s
+    block_B <- P_raw[remaining_indices, , drop = FALSE]
+    
+    # --- Detection Phase 1: Direct Copy-Paste Vectorization ---
+    diff_matrix <- abs(sweep(block_B, 2, vA, "-"))
+    is_copy_paste <- rowSums(diff_matrix > tol) == 0
+    
+    # --- Detection Phase 2 & 3: Proportional Scaling & Parallel Shifting ---
+    # Enforce variance check on reference vector to prevent mathematical contradictions
+    var_vA <- var(vA)
+    if (var_vA > tol) {
+      
+      # Step A: Apply Mean Centering to neutralize the parallel shifting component (b)
+      # Mathematical proof: Mean centering reduces (aX + b) to pure scaling (aX)
+      mean_vA <- mean(vA)
+      vA_centered <- vA - mean_vA
+      
+      mean_B <- rowMeans(block_B)
+      block_B_centered <- sweep(block_B, 1, mean_B, "-")
+      
+      # Identify stable non-zero elements in the centered reference vector
+      valid_cols <- which(abs(vA_centered) > tol)
+      
+      if (length(valid_cols) >= 2) {
+        # Fast batch calculation of the transformation ratio matrix
+        sub_B_cent <- block_B_centered[, valid_cols, drop = FALSE]
+        sub_vA_cent <- vA_centered[valid_cols]
+        ratio_matrix <- sweep(sub_B_cent, 2, sub_vA_cent, "/")
+        
+        # Extract row-wise ratio means across valid components
+        row_ratio_means <- rowMeans(ratio_matrix)
+        
+        # Mathematical invariance check: Evaluate if ratio variance equals 0
+        ratio_diff <- abs(sweep(ratio_matrix, 1, row_ratio_means, "-"))
+        is_linear_relation <- rowSums(ratio_diff > tol) == 0
+        
+        # Exclude instances already flagged as strict Copy-Paste
+        is_linear_relation[is_copy_paste] <- FALSE
+        
+        # Differentiate pure scaling (aX) from full linear transformation (aX + b)
+        # If the expected mean aligns within tol, it is pure scaling; otherwise, it is shifted
+        is_pure_scale <- is_linear_relation & (abs(mean_B - row_ratio_means * mean_vA) <= tol)
+        is_shifted    <- is_linear_relation & (!is_pure_scale)
+        
+      } else {
+        is_pure_scale <- rep(FALSE, length(remaining_indices))
+        is_shifted    <- rep(FALSE, length(remaining_indices))
+      }
+    } else {
+      is_pure_scale <- rep(FALSE, length(remaining_indices))
+      is_shifted    <- rep(FALSE, length(remaining_indices))
+    }
+    
+    # --- Tally Accumulation Phase ---
+    count_copy_paste <- count_copy_paste + sum(is_copy_paste)
+    count_scaled     <- count_scaled + sum(is_pure_scale)
+    count_linear     <- count_linear + sum(is_shifted)
+    
+    # Safeguarded Telemetry Logging (Caps memory usage automatically)
+    if (length(sampled_A) < max_log_samples) {
+      hit_idx <- which(is_copy_paste | is_pure_scale | is_shifted)
+      if (length(hit_idx) > 0) {
+        allowed_slots <- max_log_samples - length(sampled_A)
+        hit_idx_capped <- hit_idx[1:min(length(hit_idx), allowed_slots)]
+        actual_targets <- remaining_indices[hit_idx_capped]
+        
+        sampled_A <- c(sampled_A, rep(sample_ids[i], length(hit_idx_capped)))
+        sampled_B <- c(sampled_B, sample_ids[actual_targets])
+        
+        verdicts <- ifelse(is_copy_paste[hit_idx_capped], "Copy-Paste",
+                    ifelse(is_pure_scale[hit_idx_capped], "Proportional Scaling (aX)", 
+                                                          "Linear Transformation (aX + b)"))
+        sampled_verdict <- c(sampled_verdict, verdicts)
+      }
+    }
+  }
+  
+  total_anomalies <- count_copy_paste + count_scaled + count_linear
+  
+  # 4. Forensic Telemetry Reporting
+  if (total_anomalies == 0) {
+    cat("==========================================================\n")
+    cat("          FORENSIC INTEGRITY PASS REPORT                  \n")
+    cat("==========================================================\n")
+    cat("No anomalous data duplications, scaling, or linear modifications detected.\n")
+    cat("All individual numeric fluctuations are preserved normally.\n")
+    cat("==========================================================\n")
+    message(sprintf("[SUCCESS] Forensic integrity confirmed. Audit report saved to: %s", log_filename))
+    return(invisible(NULL))
+  }
+  
+  cat("    CRITICAL SECURITY ALERT: NUMERIC MATCH TRIPPED        \n")
+  cat("==========================================================\n")
+  cat(sprintf("TOTAL ANOMALOUS PAIRS DETECTED : %d\n", total_anomalies))
+  cat(sprintf("  -> Raw Duplications (Copy-Paste)       : %d\n", count_copy_paste))
+  cat(sprintf("  -> Scaled Modifications (aX)            : %d\n", count_scaled))
+  cat(sprintf("  -> Linear Transformations (aX + b)      : %d\n", count_linear))
+  cat("==========================================================\n\n")
+  
+  cat(sprintf("Previewing the first %d flagged instances:\n\n", length(sampled_A)))
+  alert_summary <- data.frame(
+    Sample_A = sampled_A, 
+    Sample_B = sampled_B, 
+    Anomalous_Type = sampled_verdict, 
+    stringsAsFactors = FALSE
+  )
+  print(alert_summary, right = FALSE, row.names = FALSE)
+  cat("----------------------------------------------------------\n")
+  
+  if (total_anomalies > max_log_samples) {
+    cat(sprintf("[NOTICE] %d additional matches suppressed from console logs to conserve RAM.\n", 
+                total_anomalies - max_log_samples))
+    cat("----------------------------------------------------------\n")
+  }
+  message(sprintf("[SUCCESS] Digital forensics completed. Security log saved to: %s", log_filename))
+}
+
+run_itagaki_forensics_advanced(Dataset)
