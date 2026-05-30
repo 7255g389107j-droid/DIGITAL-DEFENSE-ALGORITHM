@@ -39,3 +39,7 @@ If you utilize this software, logic, or threshold methodology in your research, 
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](https://opensource.org) page for legal details.
+
+---
+
+# This is something I gained only by acknowledging my defeat and reflecting on it. This system would not exist without my mentor (Norio Sugimoto) who taught me statistics.
