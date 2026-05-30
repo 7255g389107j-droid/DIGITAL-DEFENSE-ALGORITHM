@@ -3,6 +3,8 @@
 # ------------------------------------------------------------------------------
 # This system is a mathematical algorithm designed to protect humanity from malicious intent.
 # Fluctuations on data creation can be detected using IR (Invariance Ratio) or Sp (Physical Deviation).
+# Use only to distinguish between artificial and natural data.
+# The Invariance Ratio (IR) for natural data is meaningless.
 # Optimized Version: Row-wise streaming evaluator for cross-component stability.
 # Provides objective statistical metrics (IR & Sp) for manual forensic inspection.
 # Developed by: Tatsuki Itagaki
